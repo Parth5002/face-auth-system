@@ -1,0 +1,8 @@
+{
+  "params": {
+    "server": "localhost",
+    "database_name": "FD",
+    "username": "postgres",
+    "password": "PSM100"
+  }
+}

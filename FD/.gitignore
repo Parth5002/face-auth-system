@@ -1,0 +1,20 @@
+--- Python Backend ---
+
+pycache/
+*.py[cod]
+FD/
+venv/
+.env
+*.log
+
+--- Database ---
+
+Security: Don't upload your password file!
+
+config.json
+
+--- React Frontend ---
+
+client/node_modules/
+client/dist/
+client/.env
