@@ -10,10 +10,21 @@ import json
 
 # Flask App Initialization
 app = Flask(__name__)
-CORS(app)  
+CORS(app)
 
 # --- CONFIGURATION SECTION ---
 def get_db_uri():
+    # 1. Check for Cloud Environment Variable (Render/Railway/Heroku)
+    # This allows the app to work on the cloud without config.json
+    env_db_url = os.environ.get('DATABASE_URL')
+    if env_db_url:
+        # Fix for some hosts (like Heroku) that use 'postgres://' instead of 'postgresql://'
+        if env_db_url.startswith("postgres://"):
+            env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
+        print("--> Using Cloud Database Connection")
+        return env_db_url
+
+    # 2. Fallback to Local config.json (For your laptop)
     try:
         with open('config.json', 'r') as config_file:
             config = json.load(config_file)
@@ -29,6 +40,7 @@ def get_db_uri():
             return None
 
         # Return PostgreSQL Connection String
+        print("--> Using Local config.json")
         return f"postgresql://{username}:{password}@{server}/{database}"
     except Exception as e:
         print(f"❌ ERROR loading config.json: {e}")
@@ -199,6 +211,7 @@ def login():
                 "message": "Login successful!",
                 "user_id": matched_user.id,
                 "username": matched_user.username,
+                "email": matched_user.email,
                 "score": str(best_match_score)
             })
 
