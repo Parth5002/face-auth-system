@@ -185,8 +185,7 @@ def login():
                     stored_encoding = np.fromstring(user.face_encoding, sep=",")
                     
                     # Calculate the "Distance" (Difference)
-                    # 0.0 = Exact Match
-                    # 1.0 = Completely Different
+                    # 0.0 = Exact Match, 1.0 = Different
                     face_dist = face_recognition.face_distance([stored_encoding], login_encoding)[0]
                     
                     print(f"Checking {user.username}: Difference Score = {face_dist}")
