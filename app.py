@@ -14,17 +14,13 @@ CORS(app)
 
 # --- CONFIGURATION SECTION ---
 def get_db_uri():
-    # 1. Check for Cloud Environment Variable (Render/Railway/Heroku)
-    # This allows the app to work on the cloud without config.json
     env_db_url = os.environ.get('DATABASE_URL')
     if env_db_url:
-        # Fix for some hosts (like Heroku) that use 'postgres://' instead of 'postgresql://'
         if env_db_url.startswith("postgres://"):
             env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
         print("--> Using Cloud Database Connection")
         return env_db_url
 
-    # 2. Fallback to Local config.json (For your laptop)
     try:
         with open('config.json', 'r') as config_file:
             config = json.load(config_file)
@@ -39,7 +35,6 @@ def get_db_uri():
             print("❌ ERROR: Missing fields in config.json")
             return None
 
-        # Return PostgreSQL Connection String
         print("--> Using Local config.json")
         return f"postgresql://{username}:{password}@{server}/{database}"
     except Exception as e:
@@ -71,13 +66,11 @@ with app.app_context():
 
 # -----------------------------
 
-# Face Detection and Storage Setup
 image_folder = os.path.join(app.static_folder, 'images')
 if not os.path.exists(app.static_folder):
     os.makedirs(app.static_folder)
 os.makedirs(image_folder, exist_ok=True)
 
-# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -92,16 +85,13 @@ def register():
         if not name or not email:
             return jsonify({"error": "Name and email are required"}), 400
 
-        # Check existing user
         if FDUser.query.filter((FDUser.username == name) | (FDUser.email == email)).first():
             return jsonify({"error": "User with this username or email already exists"}), 400
 
-        # Capture and encode face
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
              return jsonify({"error": "Webcam not accessible"}), 500
         
-        # Read a few frames to let camera adjust
         for _ in range(5):
             cap.read()
             
@@ -120,20 +110,22 @@ def register():
 
         new_face_encoding = face_encodings[0]
         
-        # Check against all existing faces
+        # --- FIXED DUPLICATE CHECK ---
         all_users = FDUser.query.all()
         for user in all_users:
             if user.face_encoding:
                 try:
                     existing_encoding = np.fromstring(user.face_encoding, sep=",")
-                    # Compare faces
-                    matches = face_recognition.compare_faces([existing_encoding], new_face_encoding)
+                    
+                    # CHANGED TOLERANCE TO 0.5 (Stricter)
+                    # This prevents the system from confusing two different people
+                    matches = face_recognition.compare_faces([existing_encoding], new_face_encoding, tolerance=0.5)
+                    
                     if matches[0]:
                         return jsonify({"error": "Face already registered with another account"}), 400
                 except:
                     continue
 
-        # Save new user
         face_encoding_str = ",".join(map(str, new_face_encoding))
         new_user = FDUser(username=name, email=email, face_encoding=face_encoding_str)
         db.session.add(new_user)
@@ -153,7 +145,6 @@ def login():
         if not cap.isOpened():
              return jsonify({"error": "Webcam not accessible"}), 500
         
-        # Warmup camera
         for _ in range(5):
             cap.read()
 
@@ -176,7 +167,7 @@ def login():
 
         print(f"--> Comparing against {len(users)} registered users...")
 
-        best_match_score = 1.0 # Lower is better
+        best_match_score = 1.0 
         matched_user = None
 
         for user in users:
@@ -184,13 +175,10 @@ def login():
                 try:
                     stored_encoding = np.fromstring(user.face_encoding, sep=",")
                     
-                    # Calculate the "Distance" (Difference)
-                    # 0.0 = Exact Match, 1.0 = Different
                     face_dist = face_recognition.face_distance([stored_encoding], login_encoding)[0]
-                    
                     print(f"Checking {user.username}: Difference Score = {face_dist}")
 
-                    # CHANGE TOLERANCE HERE (Standard is 0.6)
+                    # Login Tolerance (0.55) - Keeps it easy to login
                     if face_dist < 0.55: 
                         if face_dist < best_match_score:
                             best_match_score = face_dist
@@ -200,7 +188,6 @@ def login():
                     continue
 
         if matched_user:
-            # Log success
             print(f"--> MATCH FOUND: {matched_user.username}")
             login_history = FDLoginHistory(user_id=matched_user.id, success=True)
             db.session.add(login_history)
