@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: face-auth-backend
+    env: docker
+    rootDir: .
+    plan: starter
+    branch: main
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+
