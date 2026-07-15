@@ -14,15 +14,16 @@ CORS(app)
 
 # --- CONFIGURATION SECTION ---
 def get_db_uri():
-    env_db_url = os.environ.get('DATABASE_URL')
-    if env_db_url:
-        if env_db_url.startswith("postgres://"):
-            env_db_url = env_db_url.replace("postgres://", "postgresql://", 1)
-        print("--> Using Cloud Database Connection")
-        return env_db_url
+    """Cloud-ready DB config: DATABASE_URL env var first, config.json fallback."""
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        print("--> Using Cloud Database Connection (DATABASE_URL)")
+        return database_url
 
     try:
-        with open('config.json', 'r') as config_file:
+        with open("config.json", "r") as config_file:
             config = json.load(config_file)
             
         params = config.get('params', {})
@@ -209,4 +210,4 @@ def login():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000)))

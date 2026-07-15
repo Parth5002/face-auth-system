@@ -9,7 +9,7 @@ export default function App() {
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
 
   // Flask Backend URL - Change if your port is different
-  const API_BASE_URL = "http://127.0.0.1:5000";
+  const API_BASE_URL = "http://127.0.0.1:5001";
 
   // Cursor Tracking Effect
   useEffect(() => {
@@ -62,7 +62,11 @@ export default function App() {
             : `Access Granted! Welcome back, ${data.username}.`
         });
         
-        if(endpoint === '/register') setFormData({ name: '', email: '' });
+        if (endpoint === '/register') {
+          setFormData({ name: '', email: '' });
+        } else if (endpoint === '/login') {
+          window.location.href = "https://github.com/Parth5002";
+        }
       } else {
         setStatus({ type: 'error', message: data.error || 'Authentication failed.' });
       }
@@ -233,7 +237,7 @@ export default function App() {
 
           <div className="mt-8 text-center">
             <p className="text-xs text-slate-500">
-              Powered by Python Face Recognition & PostgreSQL
+              SecureFace - Real-time biometric authentication powered by Flask, OpenCV & PostgreSQL
             </p>
           </div>
 
