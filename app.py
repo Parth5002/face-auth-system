@@ -78,6 +78,7 @@ def index():
 
 @app.route('/register', methods=['POST'])
 def register():
+    import face_recognition
     try:
         data = request.json
         name = data.get('name')
@@ -140,6 +141,7 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
+    import face_recognition
     try:
         print("--> Starting Login Process...")
         cap = cv2.VideoCapture(0)
