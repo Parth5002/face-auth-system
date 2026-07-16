@@ -80,23 +80,35 @@ def index():
 @app.route('/register', methods=['POST'])
 def register():
     import face_recognition
+    import base64
+    import numpy as np
+    
     try:
         data = request.json
         name = data.get('name')
         email = data.get('email')
+        image_data = data.get('image')
 
-        if not name or not email:
-            return jsonify({"error": "Name and email are required"}), 400
+        if not name or not email or not image_data:
+            return jsonify({"error": "Name, email, and image are required"}), 400
 
+        # Check if user already exists
         if FDUser.query.filter((FDUser.username == name) | (FDUser.email == email)).first():
             return jsonify({"error": "User with this username or email already exists"}), 400
 
-        # NEW CLOUD-READY IMAGE PROCESSING
-        image_data = data.get('image')
-        if not image_data:
-            return jsonify({"error": "No image provided by frontend"}), 400
+        # Decode Base64 Image
+        encoded_data = image_data.split(',')[1] if ',' in image_data else image_data
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if frame is None:
+            return jsonify({"error": "Failed to decode image."}), 400
+
+        # Shrink image to save memory
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        
+        # Detect faces
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
@@ -105,22 +117,19 @@ def register():
 
         new_face_encoding = face_encodings[0]
         
-        # --- FIXED DUPLICATE CHECK ---
+        # Check for duplicate faces
         all_users = FDUser.query.all()
         for user in all_users:
             if user.face_encoding:
                 try:
                     existing_encoding = np.fromstring(user.face_encoding, sep=",")
-                    
-                    # CHANGED TOLERANCE TO 0.5 (Stricter)
-                    # This prevents the system from confusing two different people
                     matches = face_recognition.compare_faces([existing_encoding], new_face_encoding, tolerance=0.5)
-                    
                     if matches[0]:
                         return jsonify({"error": "Face already registered with another account"}), 400
                 except:
                     continue
 
+        # Save to database
         face_encoding_str = ",".join(map(str, new_face_encoding))
         new_user = FDUser(username=name, email=email, face_encoding=face_encoding_str)
         db.session.add(new_user)
@@ -131,7 +140,7 @@ def register():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to register user: {e}"}), 500
-
+        
 @app.route('/login', methods=['POST'])
 def login():
     import face_recognition
@@ -218,6 +227,6 @@ def login():
     except Exception as e:
         print(f"Login Error: {e}")
         return jsonify
-        
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000)))
