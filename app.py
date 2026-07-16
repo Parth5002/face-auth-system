@@ -10,7 +10,7 @@ import json
 
 # Flask App Initialization
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- CONFIGURATION SECTION ---
 def get_db_uri():
