@@ -3,7 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PORT=10000
+    PORT=7860
 
 WORKDIR /app
 
@@ -28,6 +28,6 @@ RUN pip install --no-deps face_recognition
 
 COPY . .
 
-EXPOSE 10000
+EXPOSE 7860
 
-CMD ["gunicorn", "--timeout", "120", "app:app", "--bind", "0.0.0.0:10000"]
+CMD ["gunicorn", "--timeout", "120", "app:app", "--bind", "0.0.0.0:7860"]
