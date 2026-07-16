@@ -1,6 +1,8 @@
 FROM python:3.11-slim
 
-ENV PYTHONUNBUFFERED=1 \
+# Limit C++ compiler to 1 core to prevent 8GB RAM crashes
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PORT=10000
