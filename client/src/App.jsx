@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, Mail, Camera, Lock, CheckCircle, AlertCircle, Loader, ScanFace } from 'lucide-react';
+import Webcam from 'react-webcam';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
@@ -7,6 +8,9 @@ export default function App() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+
+  // Webcam reference
+  const webcamRef = useRef(null);
 
   // Flask Backend URL - Change if your port is different
   const API_BASE_URL = "https://face-auth-system-dx0c.onrender.com";
@@ -20,6 +24,14 @@ export default function App() {
     return () => window.removeEventListener('mousemove', updateCursor);
   }, []);
 
+  // Function to take a picture and convert it to Base64 text
+  const captureImage = useCallback(() => {
+    if (webcamRef.current) {
+      return webcamRef.current.getScreenshot();
+    }
+    return null;
+  }, [webcamRef]);
+
   // Handle Input Changes
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -30,33 +42,43 @@ export default function App() {
     setStatus({ type: '', message: '' });
     setIsLoading(true);
 
-    // Validation for Register
+    // Validation for Register text fields
     if (endpoint === '/register' && (!formData.name || !formData.email)) {
       setStatus({ type: 'error', message: 'Please fill in all fields.' });
       setIsLoading(false);
       return;
     }
 
+    // 1. CAPTURE THE IMAGE
+    const base64Image = captureImage();
+    
+    if (!base64Image) {
+      setStatus({ type: 'error', message: 'Camera not ready. Please allow camera permissions.' });
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      // 2. PREPARE THE PAYLOAD (Include the image for both login and register)
+      const payload = endpoint === '/register' 
+        ? { ...formData, image: base64Image }
+        : { image: base64Image };
+
       const config = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(payload),
       };
 
-      if (endpoint === '/register') {
-        config.body = JSON.stringify(formData);
-      }
-
-      // Connecting to Python Backend
+      // 3. SEND TO PYTHON BACKEND
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
       const data = await response.json();
 
       if (response.ok) {
         setStatus({ 
           type: 'success', 
-          // CHANGED HERE: Uses data.username for login success
           message: endpoint === '/register' 
             ? `Welcome, ${formData.name}! Registration complete.` 
             : `Access Granted! Welcome back, ${data.username}.`
@@ -64,14 +86,17 @@ export default function App() {
         
         if (endpoint === '/register') {
           setFormData({ name: '', email: '' });
+          // Automatically switch to login tab after successful registration
+          setTimeout(() => setActiveTab('login'), 2000);
         } else if (endpoint === '/login') {
-          window.location.href = "https://github.com/Parth5002";
+          // Redirect to your portfolio on successful login
+          window.location.href = "https://parth-gohil-portfolio.vercel.app/";
         }
       } else {
         setStatus({ type: 'error', message: data.error || 'Authentication failed.' });
       }
     } catch (error) {
-      setStatus({ type: 'error', message: 'Could not connect to server. Is app.py running?' });
+      setStatus({ type: 'error', message: 'Could not connect to server. Is it waking up?' });
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +106,6 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4 font-sans text-slate-100 overflow-hidden cursor-none">
       
       {/* --- CUSTOM CURSOR --- */}
-      {/* Main Glow */}
       <div 
         className="fixed w-8 h-8 bg-blue-400 rounded-full blur-md pointer-events-none z-[100] mix-blend-screen transition-transform duration-75 ease-out"
         style={{ 
@@ -90,7 +114,6 @@ export default function App() {
           transform: 'translate(-50%, -50%)' 
         }}
       />
-      {/* Secondary Trailing Glow */}
       <div 
         className="fixed w-24 h-24 bg-purple-500/30 rounded-full blur-xl pointer-events-none z-[90] mix-blend-screen transition-transform duration-500 ease-out"
         style={{ 
@@ -108,7 +131,7 @@ export default function App() {
         <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-500/30 rounded-full blur-3xl translate-x-10 translate-y-10 pointer-events-none"></div>
 
         {/* Header Section */}
-        <div className="p-8 text-center relative z-10">
+        <div className="p-8 pb-4 text-center relative z-10">
           <div className="mx-auto w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-4 border border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
             <ScanFace className="w-8 h-8 text-blue-300" />
           </div>
@@ -145,14 +168,23 @@ export default function App() {
         {/* Content Area */}
         <div className="px-8 pb-8 relative z-10">
           
+          {/* WEBCAM FEED (Always visible so it doesn't flicker when switching tabs) */}
+          <div className="flex justify-center mb-6 rounded-xl overflow-hidden border-2 border-slate-700/50 shadow-inner bg-black">
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              width={320}
+              height={240}
+              videoConstraints={{ facingMode: "user" }}
+              className="w-full object-cover opacity-90"
+            />
+          </div>
+
           {/* LOGIN VIEW */}
           {activeTab === 'login' && (
             <div className="space-y-6 animate-pulse-fade">
-              <div className="p-6 bg-slate-900/40 rounded-2xl border border-white/5 text-center">
-                <p className="text-slate-300 mb-4 text-sm">
-                  Look at the camera and click below to verify identity.
-                </p>
-                
+              <div className="p-2 text-center">
                 <button
                   onClick={() => handleAuth('/login')}
                   disabled={isLoading}
@@ -167,7 +199,7 @@ export default function App() {
                   ) : (
                     <Lock className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   )}
-                  {isLoading ? 'Scanning...' : 'Authenticate'}
+                  {isLoading ? 'Scanning...' : 'Authenticate Face'}
                 </button>
               </div>
             </div>
