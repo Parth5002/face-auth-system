@@ -7,6 +7,7 @@ import face_recognition
 from flask_migrate import Migrate
 from models import db, FDUser, FDLoginHistory
 import json
+import base64
 
 # Flask App Initialization
 app = Flask(__name__)
@@ -90,18 +91,10 @@ def register():
         if FDUser.query.filter((FDUser.username == name) | (FDUser.email == email)).first():
             return jsonify({"error": "User with this username or email already exists"}), 400
 
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-             return jsonify({"error": "Webcam not accessible"}), 500
-        
-        for _ in range(5):
-            cap.read()
-            
-        ret, frame = cap.read()
-        cap.release()
-
-        if not ret:
-            return jsonify({"error": "Failed to capture image. Try again."}), 500
+        # NEW CLOUD-READY IMAGE PROCESSING
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({"error": "No image provided by frontend"}), 400
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(rgb_frame)
@@ -142,22 +135,37 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     import face_recognition
+    import base64
+    import numpy as np
+    
     try:
         print("--> Starting Login Process...")
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-             return jsonify({"error": "Webcam not accessible"}), 500
         
-        for _ in range(5):
-            cap.read()
+        # 1. Grab the JSON payload from the React frontend
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data received"}), 400
+            
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({"error": "No image provided by frontend"}), 400
 
-        ret, frame = cap.read()
-        cap.release()
+        # 2. Decode the Base64 image string back into an OpenCV image
+        # This handles the 'data:image/jpeg;base64,' prefix if React sends it
+        encoded_data = image_data.split(',')[1] if ',' in image_data else image_data
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        if not ret:
-            return jsonify({"error": "Failed to capture image."}), 500
+        if frame is None:
+            return jsonify({"error": "Failed to decode image."}), 400
 
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # 3. Shrink the image to 25% size to prevent Render memory crashes
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+
+        # 4. Convert the shrunk image to RGB for face_recognition
+        rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        
+        # --- The rest is your original authentication logic ---
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings_list = face_recognition.face_encodings(rgb_frame, face_locations)
 
@@ -209,7 +217,7 @@ def login():
 
     except Exception as e:
         print(f"Login Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
+        return jsonify
+        
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000)))
