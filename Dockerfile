@@ -1,32 +1,33 @@
 FROM python:3.11-slim
 
-# Limit C++ compiler to 1 core to prevent 8GB RAM crashes
-ENV CMAKE_BUILD_PARALLEL_LEVEL=1 \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PORT=10000
 
 WORKDIR /app
 
-# Install system dependencies required by OpenCV and dlib (including C++ tools)
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    cmake \
-    build-essential \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-# Upgrade pip tools and install Python dependencies
+# 1. Install all your normal requirements (except dlib/face_recognition)
 RUN pip install --upgrade pip setuptools wheel && \
     pip install -r requirements.txt
+
+# 2. Install the pre-compiled dlib binary and required dependencies
+RUN pip install dlib-bin face_recognition_models click pillow numpy
+
+# 3. Install face_recognition, forcing it to skip the memory-crashing build step
+RUN pip install --no-deps face_recognition
 
 COPY . .
 
 EXPOSE 10000
 
-# Start the server using Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
