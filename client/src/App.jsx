@@ -9,7 +9,7 @@ export default function App() {
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
 
   // Flask Backend URL - Change if your port is different
-  const API_BASE_URL = "http://127.0.0.1:5001";
+  const API_BASE_URL = "https://face-auth-system-dx0c.onrender.com";
 
   // Cursor Tracking Effect
   useEffect(() => {
